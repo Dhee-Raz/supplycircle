@@ -1,8 +1,8 @@
-# StockTogether
+# SupplyCircle
 
-A responsive stock purchasing app for businesses with several partners and stores.
+A collaborative purchasing and stock-request application for businesses operating multiple local stores with several owners or partners.
 
-Employees post stock requests. Owners and partners mark items as bought. Store lists, urgent requests, and purchase history are shared within a business.
+Store employees report missing or low-stock items, identifying their store, requested quantity, and urgency. Owners and partners coordinate purchases or dealer orders through shared lists, track responsibility, and update progress to reduce duplicate ordering. The long-term workflow distinguishes requested, claimed, ordered, and received items; not all of these stages are implemented yet.
 
 ## Accounts and access
 
@@ -52,6 +52,6 @@ The check creates test accounts and records. Use a disposable test database, nev
 
 This checkout retains its Sites/Cloudflare integration and D1 migrations in `.openai/hosting.json` and `drizzle/`. Publishing applies pending hosted schema migrations.
 
-The existing private hosted Site has an outer ChatGPT access policy. App login does not bypass that policy: users need permission to open the Site before signing into StockTogether. Changing the Site's audience or moving to another host is a separate deployment change.
+The existing private hosted Site has an outer ChatGPT access policy. App login does not bypass that policy: users need permission to open the Site before signing into SupplyCircle. Changing the Site's audience or moving to another host is a separate deployment change.
 
 Existing ChatGPT workspace contacts can link to an app account only while the matching verified ChatGPT identity is present. Contact strings alone cannot claim existing workspace membership.
