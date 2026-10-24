@@ -25,7 +25,7 @@ jobs:
           done
       - name: Start disposable test server
         run: |
-          npm start > /tmp/supplycircle-test-server.log 2>&1 &
+          npm start -- --port 8788 > /tmp/supplycircle-test-server.log 2>&1 &
           echo $! > /tmp/supplycircle-server.pid
           for i in $(seq 1 45); do
             if curl --silent --fail http://127.0.0.1:8788/ > /dev/null; then exit 0; fi
