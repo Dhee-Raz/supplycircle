@@ -14,8 +14,8 @@ export async function GET() {
     return json({
       user: publicAccount(account), member,
       business: await db.select().from(businesses).where(eq(businesses.id, member.business)).get(),
-      stores: await db.select().from(stores).where(and(eq(stores.business, member.business), ...(member.role === 'employee' && member.storeId ? [eq(stores.id, member.storeId)] : []))),
-      items: await db.select().from(items).where(and(eq(items.business, member.business), ...(member.role === 'employee' && member.storeId ? [eq(items.store, member.storeId)] : []))),
+      stores: await db.select().from(stores).where(and(eq(stores.business, member.business), ...(member.role === 'employee' ? [eq(stores.id, member.storeId || '__unassigned__')] : []))),
+      items: await db.select().from(items).where(and(eq(items.business, member.business), ...(member.role === 'employee' ? [eq(items.store, member.storeId || '__unassigned__')] : []))),
       members: team, invitations: pendingInvitations,
     });
   } catch (error) { return failure(error); }
