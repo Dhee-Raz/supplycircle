@@ -18,3 +18,20 @@ jobs:
         run: npx tsc --noEmit
       - name: Build
         run: npm run build
+      - name: Initialize disposable test database
+        run: |
+          for file in drizzle/*.sql; do
+            node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file "$file"
+          done
+      - name: Start disposable test server
+        run: |
+          npm start -- --port 8788 > /tmp/supplycircle-test-server.log 2>&1 &
+          echo $! > /tmp/supplycircle-server.pid
+          for i in $(seq 1 45); do
+            if curl --silent --fail http://127.0.0.1:8788/ > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/supplycircle-test-server.log
+          exit 1
+      - name: API integration tests
+        run: node scripts/test-app.mjs http://127.0.0.1:8788

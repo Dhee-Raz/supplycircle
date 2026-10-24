@@ -112,6 +112,19 @@ export async function POST(request: Request) {
         }).where(and(eq(items.id, id), eq(items.business, member.business), eq(items.status, 'needed'))).returning({ id: items.id });
         if (!updated.length) throw new InputError('This request has already changed. Refresh.', 409);
       }
+    } else if (['claim', 'unclaim', 'order', 'receive'].includes(String(body.action))) {
+      if (member.role === 'employee') throw new InputError('Only owners and partners can coordinate purchases.', 403);
+      const id = clean(body.id, 'item ID');
+      const action = String(body.action);
+      const expected = action === 'claim' ? 'needed' : action === 'unclaim' ? 'claimed' : action === 'order' ? 'claimed' : 'ordered';
+      const next = action === 'claim' ? 'claimed' : action === 'unclaim' ? 'needed' : action === 'order' ? 'ordered' : 'received';
+      const conditions = [eq(items.id, id), eq(items.business, member.business), eq(items.status, expected)];
+      if (action !== 'claim') conditions.push(eq(items.boughtById, account.id));
+      const values = action === 'claim' ? { status: next, boughtById: account.id, boughtBy: account.name } :
+        action === 'unclaim' ? { status: next, boughtById: null, boughtBy: null } :
+        action === 'receive' ? { status: next, boughtAt: new Date().toISOString() } : { status: next };
+      const updated = await db.update(items).set(values).where(and(...conditions)).returning({ id: items.id });
+      if (!updated.length) throw new InputError('The request was already claimed, updated, or assigned to another purchaser. Refresh the list.', 409);
     } else if (body.action === 'buy' || body.action === 'reopen') {
       if (member.role === 'employee') throw new InputError('A partner or owner must mark purchases.', 403);
       const buying = body.action === 'buy', id = clean(body.id, 'item ID');
