@@ -57,3 +57,7 @@ This checkout retains its Sites/Cloudflare integration and D1 migrations in `.op
 The existing private hosted Site has an outer ChatGPT access policy. App login does not bypass that policy: users need permission to open the Site before signing into SupplyCircle. Changing the Site's audience or moving to another host is a separate deployment change.
 
 Existing ChatGPT workspace contacts can link to an app account only while the matching verified ChatGPT identity is present. Contact strings alone cannot claim existing workspace membership.
+
+## Sprint 2: stock requests
+
+Employees can submit stock requests for their assigned store with item name, quantity, unit, category, urgency, and optional notes. Pending requests can be edited or deleted by their creator; owners and partners may also manage pending requests. Purchased requests remain in purchase history and cannot be edited or deleted. The server enforces these permissions independently of the interface.

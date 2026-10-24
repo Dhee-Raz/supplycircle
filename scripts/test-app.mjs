@@ -53,7 +53,7 @@ assert.equal((await employee.request('/api/auth', { action: 'signup', ...users.e
 assert.equal((await partner.request('/api/auth', { action: 'signup', ...users.partner })).status, 200);
 assert.equal((await outsider.request('/api/auth', { action: 'signup', ...users.outsider })).status, 200);
 for (const [person, role] of [['employee', 'employee'], ['partner', 'partner']]) {
-  const invitation = await owner.request('/api/data', { action: 'invite', name: users[person].name, identifier: users[person].identifier, role });
+  const invitation = await owner.request('/api/data', { action: 'invite', name: users[person].name, identifier: users[person].identifier, role, ...(role === 'employee' ? { storeId } : {}) });
   assert.equal(invitation.status, 200);
   const token = new URL(invitation.data.inviteUrl).hash.split('=')[1];
   assert.equal((await outsider.request('/api/data', { action: 'join', token })).status, 400);
@@ -69,9 +69,19 @@ const stock = { action: 'addItem', store: storeId, name: 'Real stock request', q
 assert.equal((await employee.request('/api/data', { ...stock, quantity: -1 })).status, 400);
 assert.equal((await employee.request('/api/data', stock)).status, 200);
 state = (await partner.request()).data;
-const item = state.items[0];
+let item = state.items[0];
 assert.equal(item.addedById, (await employee.request()).data.user.id);
 assert.equal(state.stores[0].name, 'Renamed store');
+assert.equal((await employee.request('/api/data', { action: 'editItem', id: item.id, name: 'Updated stock request', quantity: 5, unit: 'boxes', category: 'Supplies', priority: 'normal', note: 'Updated' })).status, 200);
+assert.equal((await employee.request('/api/data', { action: 'editItem', id: item.id, name: 'Invalid', quantity: 0, unit: 'boxes', category: 'Supplies' })).status, 400);
+assert.equal((await employee.request()).data.items[0].name, 'Updated stock request');
+assert.equal((await outsider.request('/api/data', { action: 'deleteItem', id: item.id })).status, 403);
+assert.equal((await employee.request('/api/data', { action: 'deleteItem', id: item.id })).status, 200);
+assert.equal((await partner.request()).data.items.length, 0);
+assert.equal((await employee.request('/api/data', stock)).status, 200);
+state = (await partner.request()).data;
+const replacementItem = state.items[0];
+item = replacementItem;
 assert.equal((await employee.request('/api/data', { action: 'buy', id: item.id })).status, 403);
 assert.equal((await partner.request('/api/data', { action: 'buy', id: item.id })).status, 200);
 assert.equal((await owner.request('/api/data', { action: 'buy', id: item.id })).status, 400);
@@ -98,4 +108,4 @@ assert.equal((await partner.request('/api/auth', { action: 'login', identifier: 
 const attacker = client();
 for (let i = 0; i < 8; i++) assert.equal((await attacker.request('/api/auth', { action: 'login', identifier: `missing_${run}@example.test`, password })).status, 401);
 assert.equal((await attacker.request('/api/auth', { action: 'login', identifier: `missing_${run}@example.test`, password })).status, 429);
-console.log('PASS: empty workspace, email/phone signup and login, unique names and IDs, sessions/logout, invitation membership, roles, store renaming, purchase history, workspace isolation, origin checks, and auth attempt limits.');
+console.log('PASS: stock request edits and deletions,  empty workspace, email/phone signup and login, unique names and IDs, sessions/logout, invitation membership, roles, store renaming, purchase history, workspace isolation, origin checks, and auth attempt limits.');
