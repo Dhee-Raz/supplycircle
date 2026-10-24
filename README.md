@@ -10,7 +10,8 @@ Store employees report missing or low-stock items, identifying their store, requ
 - Choose a unique username. Each account also receives a permanent UUID.
 - Sign-in uses that registered email or phone and password. Email/SMS verification, password recovery, and adding a second sign-in contact are not included.
 - Owners create invitation links for a specific email or phone. Invitees sign in with that contact and accept the link. Links expire after seven days and can be used once. No invitation email or SMS is sent automatically.
-- Owners can rename stores and change locations in the Stores tab. Everyone can edit their own display name and username in their profile.
+- Owners can rename stores and change locations in the Stores tab.
+- Owners assign employees to individual stores during invitation and can reassign them in the Team tab. Employees see and report stock only for their assigned store. Owners and partners work across all stores. Everyone can edit their own display name and username in their profile.
 - Request and purchase records retain the actor's account ID, even if their display name changes later.
 - A person currently belongs to one business workspace.
 
@@ -31,6 +32,7 @@ Apply pending migration files once, in filename order:
 ```sh
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_aberrant_maestro.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_easy_lester.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0002_employee_store_assignment.sql
 npm start
 ```
 
@@ -46,7 +48,7 @@ Run the built server with a disposable database, then run:
 node scripts/test-app.mjs http://127.0.0.1:8788
 ```
 
-The check creates test accounts and records. Use a disposable test database, never a production app URL. It verifies account uniqueness, password login, sessions, invitations, roles, workspace isolation, store editing, and purchase history.
+The check creates test accounts and records. Use a disposable test database, never a production app URL. It verifies account uniqueness, password login, sessions, invitations, roles, workspace isolation, store editing, and purchase history. Sprint 1's new store-assignment behavior requires additional end-to-end verification.
 
 ## Hosting
 
