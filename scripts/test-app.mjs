@@ -82,6 +82,18 @@ assert.equal((await employee.request('/api/data', stock)).status, 200);
 state = (await partner.request()).data;
 const replacementItem = state.items[0];
 item = replacementItem;
+// Sprint 3: atomic purchase ownership and status transitions.
+assert.equal((await partner.request('/api/data', { action: 'claim', id: item.id })).status, 200);
+assert.equal((await owner.request('/api/data', { action: 'claim', id: item.id })).status, 409);
+assert.equal((await owner.request('/api/data', { action: 'order', id: item.id })).status, 409);
+assert.equal((await employee.request('/api/data', { action: 'claim', id: item.id })).status, 403);
+assert.equal((await partner.request('/api/data', { action: 'order', id: item.id })).status, 200);
+assert.equal((await partner.request('/api/data', { action: 'order', id: item.id })).status, 409);
+assert.equal((await partner.request('/api/data', { action: 'receive', id: item.id })).status, 200);
+assert.equal((await partner.request()).data.items[0].status, 'received');
+assert.equal((await employee.request('/api/data', { action: 'editItem', id: item.id, name: 'No edits', quantity: 2, unit: 'boxes', category: 'Supplies' })).status, 409);
+assert.equal((await employee.request('/api/data', stock)).status, 200);
+item = (await partner.request()).data.items.find(i => i.status === 'needed');
 assert.equal((await employee.request('/api/data', { action: 'buy', id: item.id })).status, 403);
 assert.equal((await partner.request('/api/data', { action: 'buy', id: item.id })).status, 200);
 assert.equal((await owner.request('/api/data', { action: 'buy', id: item.id })).status, 400);
