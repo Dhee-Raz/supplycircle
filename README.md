@@ -75,3 +75,20 @@ Owners and partners can add, edit and deactivate suppliers, including phone, ema
 ## Sprint 5 — Notifications and delivery tracking
 
 Urgent stock requests create in-app notifications for owners and partners; purchase and delivery changes notify the requesting employee. Notifications are workspace- and recipient-scoped and can be marked read. Purchasers can record in-transit, delayed, and delivered updates with an optional note on ordered items. The app refreshes its data every 15 seconds while visible; notifications are in-app only (no email, SMS, or push integration). Run `drizzle/0004_notifications_delivery.sql` after prior migrations.
+
+## Sprint 6 — Reporting, security and release checklist
+
+The **Reports** tab is available to owners and partners and shows business-wide request counts by status, urgent open requests, average completion time, and store-by-store open/completed totals. Reports are calculated server-side from the authenticated business only. Employees receive HTTP 403 and other workspaces cannot access the figures. Average completion time is calculated from request creation to recorded completion; **spending totals are not provided** because the app does not record purchase prices.
+
+API responses include no-store caching and basic browser security headers. The integration suite covers login/session isolation, authorization, business scoping, reports, purchase claims, supplier permissions, notifications, delivery status and CSRF origin checks. Passing tests are not a substitute for independent security review or penetration testing.
+
+### Release / deployment procedure
+
+1. Use Node 22.13+ and run `npm run install:ci`, `npx tsc --noEmit`, and `npm run build`.
+2. **Back up the hosted D1 database** before applying migrations. Apply `drizzle/0000_*.sql` through `drizzle/0004_notifications_delivery.sql` in numeric order **only if not already applied**. Do not reapply migrations to an existing database.
+3. Validate against a disposable local D1 database with `node scripts/test-app.mjs http://127.0.0.1:8788` after starting the built app at that address. Never run destructive integration tests against production.
+4. Configure and verify the hosting platform's database binding, HTTPS domain, application access policy, secrets, and backup/restore procedure. Confirm the hosted Site's outer access policy allows intended users.
+5. Perform a manual smoke test with an owner, partner and store-assigned employee, including an urgent request, claim, supplier order, delivery, notification, and Reports view.
+6. Review production logs, set up error monitoring and a recovery plan, then publish using the repository's existing hosting integration. **Merging GitHub code does not automatically establish a public production deployment.**
+
+The reporting endpoint returns aggregate counts only; no CSV export, accounting integration, spending analytics, email/SMS notifications or public deployment is claimed.

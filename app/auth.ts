@@ -64,7 +64,7 @@ export async function readBody(request: Request): Promise<Record<string, unknown
   return body;
 }
 export function json(body: unknown, status = 200, extra?: HeadersInit) {
-  return Response.json(body, { status, headers: { 'Cache-Control': 'no-store', ...extra } });
+  return Response.json(body, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY', ...extra } });
 }
 export function failure(error: unknown) {
   if (error instanceof InputError) return json({ error: error.message }, error.status);

@@ -27,6 +27,8 @@ function client() {
 const owner = client(), employee = client(), partner = client(), outsider = client();
 assert.equal((await fetch(base)).status, 200);
 assert.equal((await owner.request()).status, 401);
+assert.equal((await fetch(base+'/api/reports')).status, 401);
+assert.equal((await fetch(base+'/api/data')).headers.get('x-content-type-options'), 'nosniff');
 assert.equal((await owner.request('/api/auth', { action: 'signup', ...users.owner, password: 'short' })).status, 400);
 const signedUp = await owner.request('/api/auth', { action: 'signup', ...users.owner, role: 'owner' });
 assert.equal(signedUp.status, 200, JSON.stringify(signedUp.data));
@@ -39,6 +41,8 @@ assert.equal((await owner.request()).data.onboarding, true);
 assert.equal((await owner.request('/api/data', { action: 'setup', business: 'QA business', store: 'Original store', location: 'Old road' })).status, 200);
 let state = (await owner.request()).data;
 assert.equal(state.items.length, 0);
+assert.equal((await owner.request('/api/reports')).status, 200);
+assert.equal((await owner.request('/api/reports')).data.total, 0);
 assert.equal(state.members.length, 1);
 const storeId = state.stores[0].id, ownerId = state.user.id;
 assert.equal((await owner.request('/api/data', { action: 'editStore', id: storeId, name: 'Renamed store', location: 'New road' })).status, 200);
@@ -62,6 +66,8 @@ for (const [person, role] of [['employee', 'employee'], ['partner', 'partner']])
   assert.equal((await target.request('/api/data', { action: 'join', token })).status, 400);
   assert.equal((await target.request()).data.member.role, role);
 }
+assert.equal((await employee.request('/api/reports')).status, 403);
+assert.equal((await partner.request('/api/reports')).status, 200);
 assert.equal((await employee.request('/api/data', { action: 'editStore', id: storeId, name: 'Bad edit' })).status, 403);
 assert.equal((await partner.request('/api/data', { action: 'addStore', name: 'Bad store' })).status, 403);
 assert.equal((await employee.request('/api/data', { action: 'invite', name: 'Bad', identifier: 'bad@example.test', role: 'owner' })).status, 403);
@@ -118,6 +124,9 @@ assert.equal(state.items.find(i => i.id === item.id).boughtById, (await partner.
 assert.equal(state.items.find(i => i.id === item.id).status, 'bought');
 assert.equal((await outsider.request('/api/data', { action: 'setup', business: 'Other business', store: 'Other store' })).status, 200);
 assert.equal((await outsider.request()).data.items.length, 0);
+assert.equal((await outsider.request('/api/reports')).data.total, 0);
+assert.ok((await owner.request('/api/reports')).data.total >= 2);
+assert.ok((await owner.request('/api/reports')).data.byStore.some(x => x.id === storeId));
 assert.equal((await outsider.request('/api/data', { action: 'editStore', id: storeId, name: 'Cross-workspace edit' })).status, 404);
 assert.equal((await outsider.request('/api/data', { action: 'buy', id: item.id })).status, 400);
 assert.equal((await outsider.request('/api/data', stock)).status, 400);
