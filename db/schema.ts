@@ -36,4 +36,15 @@ export const items = sqliteTable('items', {
   status: text('status').notNull(), addedBy: text('added_by').notNull(), boughtBy: text('bought_by'),
   created: text('created').notNull(), boughtAt: text('bought_at'),
   addedById: text('added_by_id'), boughtById: text('bought_by_id'),
+  supplierId: text('supplier_id'), orderReference: text('order_reference'), expectedDelivery: text('expected_delivery'),
+});
+
+export const suppliers = sqliteTable('suppliers', {
+  id: text('id').primaryKey(),
+  business: text('business').notNull(),
+  name: text('name').notNull(),
+  phone: text('phone'),
+  email: text('email'),
+  address: text('address'),
+  active: integer('active').notNull().default(1),
 });

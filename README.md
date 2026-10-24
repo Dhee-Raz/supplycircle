@@ -67,3 +67,7 @@ Employees can submit stock requests for their assigned store with item name, qua
 Owners and partners can atomically claim an unclaimed request, mark it ordered, and mark it received. Only the purchaser who claimed a request can release it, order it, or receive it. Competing claims are rejected with HTTP 409 to prevent duplicate purchase ownership. The existing direct **bought** status remains supported for historical compatibility. Received requests are retained in purchase history. No supplier or invoice tracking is included yet.
 
 CI runs API integration tests against a disposable local D1 database; a passing build alone is not a passing integration test.
+
+## Sprint 4 — Supplier management
+
+Owners and partners can add, edit and deactivate suppliers, including phone, email and address. A purchaser can assign an active supplier to a claimed request and record an order reference and expected delivery date after ordering. Suppliers and purchases are scoped to the business workspace; employees cannot manage suppliers. Apply `drizzle/0003_suppliers.sql` after earlier migrations before running the updated app.
