@@ -18,12 +18,12 @@ export const authAttempts = sqliteTable('auth_attempts', {
 });
 export const members = sqliteTable('members', {
   email: text('email').primaryKey(), business: text('business').notNull(),
-  name: text('name').notNull(), role: text('role').notNull(), accountId: text('account_id').unique(),
+  name: text('name').notNull(), role: text('role').notNull(), accountId: text('account_id').unique(), storeId: text('store_id'),
 });
 export const invitations = sqliteTable('invitations', {
   id: text('id').primaryKey(), business: text('business').notNull(),
   identifier: text('identifier').notNull(), name: text('name').notNull(), role: text('role').notNull(),
-  tokenHash: text('token_hash').notNull().unique(), expires: integer('expires').notNull(), usedAt: text('used_at'),
+  storeId: text('store_id'), tokenHash: text('token_hash').notNull().unique(), expires: integer('expires').notNull(), usedAt: text('used_at'),
 });
 export const stores = sqliteTable('stores', {
   id: text('id').primaryKey(), business: text('business').notNull(),
