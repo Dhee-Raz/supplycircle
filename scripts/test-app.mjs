@@ -82,12 +82,18 @@ assert.equal((await employee.request('/api/data', stock)).status, 200);
 state = (await partner.request()).data;
 const replacementItem = state.items[0];
 item = replacementItem;
+assert.equal((await employee.request('/api/data', { action: 'addSupplier', name: 'Unauthorized' })).status, 403);
+assert.equal((await partner.request('/api/data', { action: 'addSupplier', name: 'Wholesale Dealer' })).status, 200);
+const supplierId = (await partner.request()).data.suppliers[0].id;
+assert.equal((await employee.request()).data.suppliers.length, 0);
 // Sprint 3: atomic purchase ownership and status transitions.
 assert.equal((await partner.request('/api/data', { action: 'claim', id: item.id })).status, 200);
+assert.equal((await partner.request('/api/data', { action: 'assignSupplier', id: item.id, supplierId })).status, 200);
 assert.equal((await owner.request('/api/data', { action: 'claim', id: item.id })).status, 409);
 assert.equal((await owner.request('/api/data', { action: 'order', id: item.id })).status, 409);
 assert.equal((await employee.request('/api/data', { action: 'claim', id: item.id })).status, 403);
 assert.equal((await partner.request('/api/data', { action: 'order', id: item.id })).status, 200);
+assert.equal((await partner.request('/api/data', { action: 'setOrderDetails', id: item.id, orderReference: 'PO-42', expectedDelivery: '2026-11-01' })).status, 200);
 assert.equal((await partner.request('/api/data', { action: 'order', id: item.id })).status, 409);
 assert.equal((await partner.request('/api/data', { action: 'receive', id: item.id })).status, 200);
 assert.equal((await partner.request()).data.items[0].status, 'received');
