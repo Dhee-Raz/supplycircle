@@ -1,6 +1,6 @@
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { getDb } from '../../../db';
-import { accounts, businesses, invitations, items, members, stores } from '../../../db/schema';
+import { accounts, businesses, invitations, items, members, stores, suppliers } from '../../../db/schema';
 import { getAccount, publicAccount, InputError, readBody, clean, normalizeIdentifier, newToken, hashToken, json, failure } from '../../auth';
 
 export async function GET() {
@@ -16,6 +16,7 @@ export async function GET() {
       business: await db.select().from(businesses).where(eq(businesses.id, member.business)).get(),
       stores: await db.select().from(stores).where(and(eq(stores.business, member.business), ...(member.role === 'employee' ? [eq(stores.id, member.storeId || '__unassigned__')] : []))),
       items: await db.select().from(items).where(and(eq(items.business, member.business), ...(member.role === 'employee' ? [eq(items.store, member.storeId || '__unassigned__')] : []))),
+      suppliers: member.role === 'employee' ? [] : await db.select().from(suppliers).where(eq(suppliers.business, member.business)),
       members: team, invitations: pendingInvitations,
     });
   } catch (error) { return failure(error); }
@@ -77,6 +78,43 @@ export async function POST(request: Request) {
         const updated = await db.update(stores).set(values).where(and(eq(stores.id, id), eq(stores.business, member.business))).returning({ id: stores.id });
         if (!updated.length) throw new InputError('Store not found.', 404);
       }
+    } else if (['addSupplier', 'editSupplier', 'deactivateSupplier'].includes(String(body.action))) {
+      if (!['owner', 'partner'].includes(member.role)) throw new InputError('Only owners and partners can manage suppliers.', 403);
+      const action = String(body.action);
+      if (action === 'addSupplier') {
+        await db.insert(suppliers).values({
+          id: crypto.randomUUID(), business: member.business, name: clean(body.name, 'supplier name', 120),
+          phone: typeof body.phone === 'string' && body.phone.trim() ? clean(body.phone, 'phone', 60) : null,
+          email: typeof body.email === 'string' && body.email.trim() ? clean(body.email, 'email', 120) : null,
+          address: typeof body.address === 'string' && body.address.trim() ? clean(body.address, 'address', 250) : null,
+        });
+      } else {
+        const id = clean(body.id, 'supplier ID');
+        const values = action === 'deactivateSupplier' ? { active: 0 } : {
+          name: clean(body.name, 'supplier name', 120),
+          phone: typeof body.phone === 'string' && body.phone.trim() ? clean(body.phone, 'phone', 60) : null,
+          email: typeof body.email === 'string' && body.email.trim() ? clean(body.email, 'email', 120) : null,
+          address: typeof body.address === 'string' && body.address.trim() ? clean(body.address, 'address', 250) : null,
+        };
+        const updated = await db.update(suppliers).set(values).where(and(eq(suppliers.id, id), eq(suppliers.business, member.business))).returning({ id: suppliers.id });
+        if (!updated.length) throw new InputError('Supplier not found.', 404);
+      }
+    } else if (body.action === 'assignSupplier') {
+      if (!['owner', 'partner'].includes(member.role)) throw new InputError('Only owners and partners can assign suppliers.', 403);
+      const id = clean(body.id, 'request ID');
+      const supplierId = clean(body.supplierId, 'supplier ID');
+      const supplier = await db.select().from(suppliers).where(and(eq(suppliers.id, supplierId), eq(suppliers.business, member.business), eq(suppliers.active, 1))).get();
+      if (!supplier) throw new InputError('Select an active supplier in your business.', 400);
+      const updated = await db.update(items).set({ supplierId }).where(and(eq(items.id, id), eq(items.business, member.business), eq(items.status, 'claimed'), eq(items.boughtById, account.id))).returning({ id: items.id });
+      if (!updated.length) throw new InputError('Claim the request before assigning a supplier.', 409);
+    } else if (body.action === 'setOrderDetails') {
+      if (!['owner', 'partner'].includes(member.role)) throw new InputError('Only owners and partners can update orders.', 403);
+      const id = clean(body.id, 'request ID');
+      const reference = typeof body.orderReference === 'string' && body.orderReference.trim() ? clean(body.orderReference, 'order reference', 120) : null;
+      const date = body.expectedDelivery ? clean(body.expectedDelivery, 'expected delivery date', 10) : null;
+      if (date && (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date)))) throw new InputError('Use a valid expected delivery date.');
+      const updated = await db.update(items).set({ orderReference: reference, expectedDelivery: date }).where(and(eq(items.id, id), eq(items.business, member.business), eq(items.status, 'ordered'), eq(items.boughtById, account.id))).returning({ id: items.id });
+      if (!updated.length) throw new InputError('Only the purchaser can update an ordered request.', 409);
     } else if (body.action === 'addItem') {
       const id = clean(body.store, 'store ID');
       const store = await db.select({ id: stores.id }).from(stores).where(and(eq(stores.id, id), eq(stores.business, member.business))).get();
