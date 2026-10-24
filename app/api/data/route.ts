@@ -92,6 +92,26 @@ export async function POST(request: Request) {
         status: 'needed', addedBy: account.name, addedById: account.id, boughtBy: null, boughtById: null,
         created: new Date().toISOString(), boughtAt: null,
       });
+    } else if (body.action === 'editItem' || body.action === 'deleteItem') {
+      const id = clean(body.id, 'item ID');
+      const existing = await db.select().from(items).where(and(eq(items.id, id), eq(items.business, member.business))).get();
+      if (!existing) throw new InputError('Stock request not found.', 404);
+      if (existing.status !== 'needed') throw new InputError('Purchased requests cannot be edited or deleted.', 409);
+      if (member.role === 'employee' && (existing.addedById !== account.id || existing.store !== member.storeId)) throw new InputError('You can only manage your own requests at your assigned store.', 403);
+      if (body.action === 'deleteItem') {
+        const deleted = await db.delete(items).where(and(eq(items.id, id), eq(items.business, member.business), eq(items.status, 'needed'))).returning({ id: items.id });
+        if (!deleted.length) throw new InputError('This request has already changed. Refresh.', 409);
+      } else {
+      const quantity = Number(body.quantity);
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100000) throw new InputError('Quantity must be between 1 and 100,000.');
+        const updated = await db.update(items).set({
+          name: clean(body.name, 'item name'), quantity,
+          unit: clean(body.unit, 'unit', 40), category: clean(body.category, 'category', 60),
+          priority: body.priority === 'urgent' ? 'urgent' : 'normal',
+          note: typeof body.note === 'string' && body.note.trim() ? clean(body.note, 'note', 1000) : '',
+        }).where(and(eq(items.id, id), eq(items.business, member.business), eq(items.status, 'needed'))).returning({ id: items.id });
+        if (!updated.length) throw new InputError('This request has already changed. Refresh.', 409);
+      }
     } else if (body.action === 'buy' || body.action === 'reopen') {
       if (member.role === 'employee') throw new InputError('A partner or owner must mark purchases.', 403);
       const buying = body.action === 'buy', id = clean(body.id, 'item ID');
