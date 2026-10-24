@@ -7,7 +7,7 @@ import { accounts, sessions, authAttempts } from '../db/schema';
 export class InputError extends Error {
   constructor(message: string, public status = 400) { super(message); }
 }
-export const SESSION_COOKIE = 'stocktogether_session';
+export const SESSION_COOKIE = 'supplycircle_session';
 export const SESSION_SECONDS = 7 * 24 * 60 * 60;
 export const hashToken = (value: string) => createHash('sha256').update(value).digest('hex');
 export const newToken = () => randomBytes(32).toString('hex');
