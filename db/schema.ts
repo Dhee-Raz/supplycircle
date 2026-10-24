@@ -37,6 +37,7 @@ export const items = sqliteTable('items', {
   created: text('created').notNull(), boughtAt: text('bought_at'),
   addedById: text('added_by_id'), boughtById: text('bought_by_id'),
   supplierId: text('supplier_id'), orderReference: text('order_reference'), expectedDelivery: text('expected_delivery'),
+  deliveryStatus: text('delivery_status'), deliveryNote: text('delivery_note'),
 });
 
 export const suppliers = sqliteTable('suppliers', {
@@ -47,4 +48,11 @@ export const suppliers = sqliteTable('suppliers', {
   email: text('email'),
   address: text('address'),
   active: integer('active').notNull().default(1),
+});
+
+export const notifications = sqliteTable('notifications', {
+  id: text('id').primaryKey(), business: text('business').notNull(),
+  accountId: text('account_id').notNull(), itemId: text('item_id'),
+  message: text('message').notNull(), kind: text('kind').notNull(),
+  created: text('created').notNull(), readAt: text('read_at'),
 });

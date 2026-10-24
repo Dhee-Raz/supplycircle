@@ -71,3 +71,7 @@ CI runs API integration tests against a disposable local D1 database; a passing 
 ## Sprint 4 — Supplier management
 
 Owners and partners can add, edit and deactivate suppliers, including phone, email and address. A purchaser can assign an active supplier to a claimed request and record an order reference and expected delivery date after ordering. Suppliers and purchases are scoped to the business workspace; employees cannot manage suppliers. Apply `drizzle/0003_suppliers.sql` after earlier migrations before running the updated app.
+
+## Sprint 5 — Notifications and delivery tracking
+
+Urgent stock requests create in-app notifications for owners and partners; purchase and delivery changes notify the requesting employee. Notifications are workspace- and recipient-scoped and can be marked read. Purchasers can record in-transit, delayed, and delivered updates with an optional note on ordered items. The app refreshes its data every 15 seconds while visible; notifications are in-app only (no email, SMS, or push integration). Run `drizzle/0004_notifications_delivery.sql` after prior migrations.

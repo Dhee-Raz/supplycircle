@@ -68,6 +68,7 @@ assert.equal((await employee.request('/api/data', { action: 'invite', name: 'Bad
 const stock = { action: 'addItem', store: storeId, name: 'Real stock request', quantity: 3, unit: 'boxes', category: 'Supplies', priority: 'urgent', note: 'Please order' };
 assert.equal((await employee.request('/api/data', { ...stock, quantity: -1 })).status, 400);
 assert.equal((await employee.request('/api/data', stock)).status, 200);
+assert.ok((await owner.request()).data.notifications.some(n => n.kind === 'urgent'));
 state = (await partner.request()).data;
 let item = state.items[0];
 assert.equal(item.addedById, (await employee.request()).data.user.id);
@@ -94,6 +95,15 @@ assert.equal((await owner.request('/api/data', { action: 'order', id: item.id })
 assert.equal((await employee.request('/api/data', { action: 'claim', id: item.id })).status, 403);
 assert.equal((await partner.request('/api/data', { action: 'order', id: item.id })).status, 200);
 assert.equal((await partner.request('/api/data', { action: 'setOrderDetails', id: item.id, orderReference: 'PO-42', expectedDelivery: '2026-11-01' })).status, 200);
+assert.equal((await employee.request('/api/data', { action: 'updateDelivery', id: item.id, deliveryStatus: 'delayed' })).status, 403);
+assert.equal((await owner.request('/api/data', { action: 'updateDelivery', id: item.id, deliveryStatus: 'delayed' })).status, 409);
+assert.equal((await partner.request('/api/data', { action: 'updateDelivery', id: item.id, deliveryStatus: 'delayed', deliveryNote: 'Supplier delay' })).status, 200);
+assert.equal((await partner.request()).data.items.find(i => i.id === item.id).deliveryStatus, 'delayed');
+assert.ok((await employee.request()).data.notifications.some(n => n.kind === 'delivery'));
+const notice = (await employee.request()).data.notifications.find(n => n.kind === 'delivery');
+assert.equal((await owner.request('/api/data', { action: 'readNotification', id: notice.id })).status, 404);
+assert.equal((await employee.request('/api/data', { action: 'readNotification', id: notice.id })).status, 200);
+assert.equal((await employee.request('/api/data', { action: 'readNotification', id: notice.id })).status, 404);
 assert.equal((await partner.request('/api/data', { action: 'order', id: item.id })).status, 409);
 assert.equal((await partner.request('/api/data', { action: 'receive', id: item.id })).status, 200);
 assert.equal((await partner.request()).data.items[0].status, 'received');
