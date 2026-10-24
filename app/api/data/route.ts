@@ -112,7 +112,7 @@ export async function POST(request: Request) {
       const id = clean(body.id, 'request ID');
       const reference = typeof body.orderReference === 'string' && body.orderReference.trim() ? clean(body.orderReference, 'order reference', 120) : null;
       const date = body.expectedDelivery ? clean(body.expectedDelivery, 'expected delivery date', 10) : null;
-      if (date && (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date)))) throw new InputError('Use a valid expected delivery date.');
+      if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)))) throw new InputError('Use a valid expected delivery date.');
       const updated = await db.update(items).set({ orderReference: reference, expectedDelivery: date }).where(and(eq(items.id, id), eq(items.business, member.business), eq(items.status, 'ordered'), eq(items.boughtById, account.id))).returning({ id: items.id });
       if (!updated.length) throw new InputError('Only the purchaser can update an ordered request.', 409);
     } else if (body.action === 'addItem') {
