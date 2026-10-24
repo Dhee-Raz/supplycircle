@@ -98,8 +98,8 @@ assert.equal((await employee.request('/api/data', { action: 'buy', id: item.id }
 assert.equal((await partner.request('/api/data', { action: 'buy', id: item.id })).status, 200);
 assert.equal((await owner.request('/api/data', { action: 'buy', id: item.id })).status, 400);
 state = (await employee.request()).data;
-assert.equal(state.items[0].boughtById, (await partner.request()).data.user.id);
-assert.equal(state.items[0].status, 'bought');
+assert.equal(state.items.find(i => i.id === item.id).boughtById, (await partner.request()).data.user.id);
+assert.equal(state.items.find(i => i.id === item.id).status, 'bought');
 assert.equal((await outsider.request('/api/data', { action: 'setup', business: 'Other business', store: 'Other store' })).status, 200);
 assert.equal((await outsider.request()).data.items.length, 0);
 assert.equal((await outsider.request('/api/data', { action: 'editStore', id: storeId, name: 'Cross-workspace edit' })).status, 404);
