@@ -83,7 +83,8 @@ assert.equal((await employee.request('/api/data', { action: 'editItem', id: item
 assert.equal((await employee.request('/api/data', { action: 'editItem', id: item.id, name: 'Invalid', quantity: 0, unit: 'boxes', category: 'Supplies' })).status, 400);
 assert.equal((await employee.request()).data.items[0].name, 'Updated stock request');
 assert.equal((await outsider.request('/api/data', { action: 'deleteItem', id: item.id })).status, 403);
-assert.equal((await employee.request('/api/data', { action: 'deleteItem', id: item.id })).status, 200);
+assert.equal((await employee.request('/api/data', { action: 'deleteItem', id: item.id })).status, 403);
+assert.equal((await owner.request('/api/data', { action: 'deleteItem', id: item.id })).status, 200);
 assert.equal((await partner.request()).data.items.length, 0);
 assert.equal((await employee.request('/api/data', stock)).status, 200);
 state = (await partner.request()).data;
