@@ -16,6 +16,8 @@ jobs:
         run: npm run install:ci
       - name: Type check
         run: npx tsc --noEmit
+      - name: Invitation delivery tests
+        run: node scripts/test-invitation-delivery.mjs
       - name: Build
         run: npm run build
       - name: Initialize disposable test database
@@ -35,3 +37,5 @@ jobs:
           exit 1
       - name: API integration tests
         run: node scripts/test-app.mjs http://127.0.0.1:8788
+      - name: Team management and employee permissions
+        run: node scripts/test-team-management.mjs http://127.0.0.1:8788

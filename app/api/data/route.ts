@@ -1,4 +1,6 @@
 import { and, eq, gt, isNull } from 'drizzle-orm';
+import { env } from 'cloudflare:workers';
+import { deliverInvitation } from '../../../lib/invitation-delivery';
 import { getDb } from '../../../db';
 import { accounts, businesses, invitations, items, members, stores, suppliers, notifications } from '../../../db/schema';
 import { getAccount, publicAccount, InputError, readBody, clean, normalizeIdentifier, newToken, hashToken, json, failure } from '../../auth';
@@ -50,6 +52,9 @@ export async function POST(request: Request) {
       return json({ ok: true });
     }
     if (!member) throw new InputError('Create a workspace or accept an invitation first.', 403);
+    if (member.role === 'employee' && !['addItem', 'editItem', 'readNotification'].includes(String(body.action))) {
+      throw new InputError('Employees can only post and edit their own pending stock requests at their assigned store.', 403);
+    }
     async function notify(recipients: string[], message: string, kind: string, itemId: string | null = null) {
       const ids = [...new Set(recipients)].filter(Boolean);
       if (ids.length) await db.insert(notifications).values(ids.map(accountId => ({
@@ -78,8 +83,36 @@ export async function POST(request: Request) {
       if (current.addedById && current.addedById !== account.id) await notify([current.addedById], `Delivery ${deliveryStatus.replace('_', ' ')}: ${current.name}`, 'delivery', id);
       return json({ ok: true });
     }
-    if (['addStore', 'editStore', 'invite', 'assignStore'].includes(String(body.action))) {
+    if (['addStore', 'editStore', 'invite', 'assignStore', 'editMember', 'deleteMember', 'editInvitation', 'deleteInvitation'].includes(String(body.action))) {
       if (member.role !== 'owner') throw new InputError('Only the owner can manage stores and team invitations.', 403);
+      if (body.action === 'deleteInvitation') {
+        const deleted = await db.delete(invitations).where(and(eq(invitations.id, clean(body.id, 'invitation ID')), eq(invitations.business, member.business), isNull(invitations.usedAt))).returning({ id: invitations.id });
+        if (!deleted.length) throw new InputError('Invitation not found.', 404);
+        return json({ ok: true });
+      }
+      if (body.action === 'editMember' || body.action === 'deleteMember') {
+        const identifier = clean(body.identifier, 'team member contact', 254);
+        const target = await db.select().from(members).where(and(eq(members.email, identifier), eq(members.business, member.business))).get();
+        if (!target) throw new InputError('Team member not found.', 404);
+        if (target.role === 'owner') throw new InputError('Use your profile to edit the owner. The owner cannot be removed.', 403);
+        if (target.accountId && (body.action === 'deleteMember' || body.role === 'employee')) {
+          const purchases = await db.select({ status: items.status }).from(items).where(and(eq(items.business, member.business), eq(items.boughtById, target.accountId)));
+          if (purchases.some(item => ['claimed', 'ordered'].includes(item.status))) throw new InputError('This member must release claimed purchases and complete ordered purchases first.', 409);
+        }
+        const scope = and(eq(members.email, identifier), eq(members.business, member.business));
+        if (body.action === 'deleteMember') {
+          await db.batch([
+            db.delete(members).where(scope),
+            db.delete(invitations).where(and(eq(invitations.business, member.business), eq(invitations.identifier, identifier), isNull(invitations.usedAt))),
+          ]);
+        } else {
+          if (!['employee', 'partner'].includes(String(body.role))) throw new InputError('Select a valid role.');
+          const storeId = body.role === 'employee' ? clean(body.storeId, 'employee store') : null;
+          if (storeId && !(await db.select({ id: stores.id }).from(stores).where(and(eq(stores.id, storeId), eq(stores.business, member.business))).get())) throw new InputError('Choose a store in your business.');
+          await db.update(members).set({ name: clean(body.name, 'team member name', 80), role: String(body.role), storeId }).where(scope);
+        }
+        return json({ ok: true });
+      }
       if (body.action === 'assignStore') {
         const accountId = clean(body.accountId, 'employee account ID');
         const storeId = clean(body.storeId, 'store ID');
@@ -89,7 +122,9 @@ export async function POST(request: Request) {
         if (!updated.length) throw new InputError('Employee not found in your business.', 404);
         return json({ ok: true });
       }
-      if (body.action === 'invite') {
+      if (body.action === 'invite' || body.action === 'editInvitation') {
+        const previous = body.action === 'editInvitation' ? await db.select().from(invitations).where(and(eq(invitations.id, clean(body.id, 'invitation ID')), eq(invitations.business, member.business), isNull(invitations.usedAt), gt(invitations.expires, Date.now()))).get() : null;
+        if (body.action === 'editInvitation' && !previous) throw new InputError('Invitation not found or expired.', 404);
         const { identifier } = normalizeIdentifier(body.identifier);
         if (body.role !== 'partner' && body.role !== 'employee') throw new InputError('Select a valid role.');
         const existing = await db.select({ email: members.email }).from(members).where(eq(members.email, identifier)).get();
@@ -97,8 +132,16 @@ export async function POST(request: Request) {
         const storeId = body.role === 'employee' ? clean(body.storeId, 'employee store') : null;
         if (storeId && !(await db.select({ id: stores.id }).from(stores).where(and(eq(stores.id, storeId), eq(stores.business, member.business))).get())) throw new InputError('Choose a store in your business.');
         const token = newToken();
-        await db.insert(invitations).values({ id: crypto.randomUUID(), business: member.business, identifier, name: clean(body.name, 'team member name', 80), role: body.role, storeId, tokenHash: hashToken(token), expires: Date.now() + 7 * 86400000, usedAt: null });
-        return json({ ok: true, inviteUrl: `${new URL(request.url).origin}/#invite=${token}` });
+        const base = new URL(env.APP_BASE_URL || request.url);
+        if (!['https:', 'http:'].includes(base.protocol)) throw new InputError('Invitation URL is not configured correctly.', 503);
+        const inviteUrl = `${base.origin}/#invite=${token}`;
+        const values = { identifier, name: clean(body.name, 'team member name', 80), role: body.role, storeId, tokenHash: hashToken(token), expires: Date.now() + 7 * 86400000, usedAt: null };
+        if (previous) {
+          const updated = await db.update(invitations).set(values).where(and(eq(invitations.id, previous.id), eq(invitations.business, member.business), isNull(invitations.usedAt))).returning({ id: invitations.id });
+          if (!updated.length) throw new InputError('Invitation was already accepted.', 409);
+        } else await db.insert(invitations).values({ id: crypto.randomUUID(), business: member.business, ...values });
+        const delivery = await deliverInvitation(env, identifier, inviteUrl);
+        return json({ ok: true, inviteUrl, delivery });
       }
       const values = { name: clean(body.name, 'store name'), location: typeof body.location === 'string' && body.location.trim() ? clean(body.location, 'location') : '' };
       if (body.action === 'addStore') await db.insert(stores).values({ id: crypto.randomUUID(), business: member.business, ...values });
@@ -169,8 +212,9 @@ export async function POST(request: Request) {
       const id = clean(body.id, 'item ID');
       const existing = await db.select().from(items).where(and(eq(items.id, id), eq(items.business, member.business))).get();
       if (!existing) throw new InputError('Stock request not found.', 404);
-      if (existing.status !== 'needed') throw new InputError('Purchased requests cannot be edited or deleted.', 409);
       if (member.role === 'employee' && (existing.addedById !== account.id || existing.store !== member.storeId)) throw new InputError('You can only manage your own requests at your assigned store.', 403);
+      if (existing.status !== 'needed') throw new InputError('Only pending requests can be edited or deleted.', 409);
+      if (body.store !== undefined && body.store !== existing.store) throw new InputError('A request cannot be moved to another store.', 403);
       if (body.action === 'deleteItem') {
         const deleted = await db.delete(items).where(and(eq(items.id, id), eq(items.business, member.business), eq(items.status, 'needed'))).returning({ id: items.id });
         if (!deleted.length) throw new InputError('This request has already changed. Refresh.', 409);

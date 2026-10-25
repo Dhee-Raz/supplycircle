@@ -9,7 +9,8 @@ Store employees report missing or low-stock items, identifying their store, requ
 - Register with an email address **or** an international phone number and a password (15–128 characters).
 - Choose a unique username. Each account also receives a permanent UUID.
 - Sign-in uses that registered email or phone and password. Email/SMS verification, password recovery, and adding a second sign-in contact are not included.
-- Owners create invitation links for a specific email or phone. Invitees sign in with that contact and accept the link. Links expire after seven days and can be used once. No invitation email or SMS is sent automatically.
+- Owners create invitations for a specific email or phone. When configured, the app submits email invitations to Resend and phone invitations to Twilio SMS. Invitees sign in with that contact and accept the link. Links expire after seven days and can be used once. The owner sees provider acceptance or a delivery warning and can copy the link as a fallback.
+- Owners can edit a team member’s workspace name, role, and assigned store, or remove them from the workspace. Removal retains the account and stock/purchase history while revoking workspace access. The owner cannot be removed. Members with claimed or ordered purchases must finish or release those purchases before removal or demotion to employee. Owners can edit and resend pending invitations (replacing the old link) or delete them to revoke the link. Sign-in contact details remain controlled by the account holder.
 - Owners can rename stores and change locations in the Stores tab.
 - Owners assign employees to individual stores during invitation and can reassign them in the Team tab. Employees see and report stock only for their assigned store. Owners and partners work across all stores. Everyone can edit their own display name and username in their profile.
 - Request and purchase records retain the actor's account ID, even if their display name changes later.
@@ -38,7 +39,7 @@ npm start
 
 Open the printed localhost URL. New workspaces start empty; no sample stores, stock, or people are seeded. Local database contents are ignored by Git and are separate from hosted data.
 
-`npm run dev` starts the development server. After migration/schema changes, rebuild the Worker config before local database commands. Use `npx tsc --noEmit` to check types.
+`npm run dev` applies pending migrations to the local database, then starts the development server. Migration history prevents reapplying migrations on subsequent starts. Hosted data is unaffected. After migration/schema changes, rebuild the Worker config before other local database commands. Use `npx tsc --noEmit` to check types.
 
 ## Integration check
 
@@ -52,6 +53,23 @@ The check creates test accounts and records. Use a disposable test database, nev
 
 ## Hosting
 
+### Invitation delivery configuration
+
+For local development, place these server-only values in an ignored `.dev.vars` file and restart `npm run dev`. For hosting, configure the corresponding Worker secrets/variables through your hosting platform:
+
+```dotenv
+RESEND_API_KEY=your-resend-api-key
+INVITATION_EMAIL_FROM=SupplyCircle <invites@your-verified-domain.com>
+TWILIO_ACCOUNT_SID=your-twilio-account-sid
+TWILIO_AUTH_TOKEN=your-twilio-auth-token
+TWILIO_FROM_NUMBER=+15551234567
+APP_BASE_URL=https://your-app-domain.com
+```
+
+Email requires a verified Resend sender; SMS requires an enabled Twilio sender and recipient permissions supported by your account. Configure `APP_BASE_URL` to an address employees can open: a localhost link only works on the server's own computer. The hosted Site's outer access policy must also permit invitees. Without credentials for the chosen channel, invitations remain available as copyable links and the UI states that automatic delivery is not configured. Provider acceptance does not guarantee inbox or handset delivery. Failed or timed-out sends retain the invitation link so it can still be shared manually.
+
+Run `node scripts/test-invitation-delivery.mjs` to check email/SMS routing, provider payloads, and failure handling with mock providers (no real messages sent).
+
 This checkout retains its Sites/Cloudflare integration and D1 migrations in `.openai/hosting.json` and `drizzle/`. Publishing applies pending hosted schema migrations.
 
 The existing private hosted Site has an outer ChatGPT access policy. App login does not bypass that policy: users need permission to open the Site before signing into SupplyCircle. Changing the Site's audience or moving to another host is a separate deployment change.
@@ -60,7 +78,7 @@ Existing ChatGPT workspace contacts can link to an app account only while the ma
 
 ## Sprint 2: stock requests
 
-Employees can submit stock requests for their assigned store with item name, quantity, unit, category, urgency, and optional notes. Pending requests can be edited or deleted by their creator; owners and partners may also manage pending requests. Purchased requests remain in purchase history and cannot be edited or deleted. The server enforces these permissions independently of the interface.
+Employees can submit stock requests for their assigned store with item name, quantity, unit, category, urgency, and optional notes. Employees can only post and edit their own pending requests in their assigned store; they cannot delete requests or manage purchasing, stores, suppliers, or team membership. Owners and partners may edit or delete pending requests. Store assignment and request ownership are checked on the server. Purchased requests remain in purchase history and cannot be edited or deleted. The server enforces these permissions independently of the interface.
 
 ## Sprint 3: purchasing coordination
 
